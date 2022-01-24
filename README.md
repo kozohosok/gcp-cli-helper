@@ -21,4 +21,4 @@ automatically determine the order of command execution by the dependencies of pa
 - `remove(template_path)`
 
 **reference:**
-  [gcloud document](https://cloud.google.com/sdk/gcloud/reference)
+  [gcloud reference](https://cloud.google.com/sdk/gcloud/reference)

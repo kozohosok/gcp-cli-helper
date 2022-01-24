@@ -7,7 +7,7 @@ deploy GCP resources with template file like makefile of make command, playbook 
 
 **parameters:**
 - binfmt: path for google cloud SDK
-- cache_dir: directory for cache status of resources
+- cache_dir: directory for cache status (command parameter and result) of resources
 
 **methods:**
 - `make(template_path)`

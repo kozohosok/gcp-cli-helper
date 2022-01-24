@@ -3,7 +3,7 @@
 ## gcputil.py
 tiny Python3 script for idempotent deployment with gcloud.
 
-deploy GCP resources with template file like Makefile of make command, playbook of Ansible, or template of AWS CloudFormation.
+deploy GCP resources with template file like Makefile of make command, playbook of Ansible, or recipe of Chef.
 
 **parameters:**
 - binfmt: path for google cloud SDK

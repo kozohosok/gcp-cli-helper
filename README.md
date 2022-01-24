@@ -2,6 +2,7 @@
 
 ## gcputil.py
 tiny Python3 script for idempotent deployment with gcloud.
+
 deploy GCP resources with template file like Makefile of make command, or playbook of Ansible.
 
 **parameters:**

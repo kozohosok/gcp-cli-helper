@@ -40,9 +40,9 @@ def updateRole(conf, cache):
     roles, oldroles = [ set(x.get('Role', [])) for x in (conf, cache) ]
     if roles == oldroles:
         return
-    args = ['remove-iam-policy-binding',
-      conf['ID'].split('@', 1)[1].split('.', 1)[0],
-      '--quiet', '--member=serviceAccount:' + conf['ID']]
+    s = conf['ID']
+    args = ['remove-iam-policy-binding', s.split('@', 1)[1].split('.', 1)[0],
+      '--member=serviceAccount:' + s, '--quiet']
     for x in oldroles - roles:
         call('gcloud', 'projects', *(args + ['--role=' + x]))
     args[0] = 'add-iam-policy-binding'
@@ -55,46 +55,44 @@ def flag(s):
     return '-' + ''.join( '-' + x.lower() if x.isupper() else x for x in s )
 
 
-def flagOption(conf, key):
-    for k,v in conf.get(key, {}).items():
-        yield flag(k) + '=' + v
+def flagOption(el, *key):
+    return ( flag(k) + '=' + v for x in key for k,v in el.get(x, {}).items() )
 
 
-def labelOption(conf, cache, isdeploy):
+def labelOption(conf, cache, isupdate):
     labels, oldlabels = conf.get('Label', {}), cache.get('Label', {})
     xs = set(oldlabels) - set(labels)
     if xs:
         yield '--remove-labels=' + ','.join(xs)
     xs = { f"{k}={v}" for k,v in labels.items() if v != oldlabels.get(k) }
     if xs:
-        yield '--update-labels' if cache or isdeploy else '--labels'
+        yield '--update-labels' if cache or isupdate else '--labels'
         yield ','.join(xs)
 
 
-def makeArgs(conf, mode, name=None):
+def _gcloud(conf, mode, name=None, opts=(), **kwds):
     args = conf['Type'] + [mode, name or conf['ID']]
     args += flagOption(conf, 'Parent')
-    return args + ['--quiet', '--format=yaml']
+    args += ['--quiet', '--format=yaml']
+    args += ( x for xs in opts for x in xs )
+    return call('gcloud', *args, **kwds)
 
 
 fixmode = dict(functions='deploy')
 
 def updateResource(conf, cache):
-    mode = fixmode.get(conf['Type'][0], 'update' if cache else 'create')
-    args = makeArgs(conf, mode, not cache and conf.get('Name'))
-    args += map(flag, conf.get('Flag', []))
-    args += flagOption(conf, 'Create')
-    args += flagOption(conf, 'Update')
-    args += labelOption(conf, cache, mode == 'deploy')
+    fix = fixmode.get(conf['Type'][0])
+    mode = fix or ('update' if cache else 'create')
+    opts = [labelOption(conf, cache, fix), map(flag, conf.get('Flag', [])),
+      flagOption(conf, 'Create', 'Update')]
     kwds = {} if conf.pop('PipeErr', True) else {'stderr': None}
-    out = call('gcloud', *args, **kwds)
-    print('stdout:', *out.rstrip().split('\n'), sep='\n  ')
+    out = _gcloud(conf, mode, not cache and conf.get('Name'), opts, **kwds)
     updateRole(conf, cache)
-    return yaml.safe_load(out or call('gcloud', *makeArgs(conf, 'describe')))
+    return yaml.safe_load(out or _gcloud(conf, 'describe'))
 
 
 def deleteResource(conf, path):
-    call('gcloud', *makeArgs(conf, 'delete'))
+    _gcloud(conf, 'delete')
     if os.path.isfile(path):
         os.remove(path)
 
@@ -130,7 +128,7 @@ def updateCache(name, conf, hold):
 
 def clean(used, hold):
     for conf in hold['$bye'][::-1]:
-        call('gcloud', *makeArgs(conf, 'delete'))
+        _gcloud(conf, 'delete')
     for name in set(map(os.path.basename, iglob(cache_dir + '*'))) - used:
         path = cache_dir + name
         deleteResource(readCache(path)[0], path)
@@ -175,7 +173,7 @@ def _sub(s, params, wait=None):
     for i,x in enumerate(xs[1:], 1):
         x, y = x.split('}', 1)
         p = params.get(x)
-        if p:
+        if p is not None:
             xs[i] = p + y
         elif wait is not None:
             params[x] = wait.add(x)
@@ -192,8 +190,9 @@ def _yml(srcdst, params, wait, files=None):
     s = yaml.dump(data).encode('utf8')
     if os.path.isfile(dst):
         with open(dst, 'rb') as f:
-            if sha256(f.read()).digest() == sha256(s).digest():
-                return dst
+            old = sha256(f.read()).digest()
+        if old == sha256(s).digest():
+            return dst
     with open(dst, 'wb') as f:
         f.write(s)
     return dst
@@ -207,24 +206,21 @@ def makeDepend(conf, params):
 
 def flatten(el, key=''):
     if isinstance(el, dict):
-        xs = ( x for k,v in el.items() for x in flatten(v, f"{key}.{k}") )
-    elif isinstance(el, list):
-        xs = ( x for i,v in enumerate(el) for x in flatten(v, f"{key}[{i}]") )
-    else:
-        yield key, str(el)
-        return
-    for x in xs:
-        yield x
+        return ( x for k,v in el.items() for x in flatten(v, f"{key}.{k}") )
+    if not isinstance(el, list):
+        return [(key, str(el))]
+    return ( x for i,v in enumerate(el) for x in flatten(v, f"{key}[{i}]") )
 
 
 def makeHash(conf, files):
     buf, i = [], conf['Type'][0] in fixmode
-    for xs in (('Parent', 'Create'), ('Update', 'Label', 'Flag')):
+    for xs in (('Type', 'Parent', 'Create'), ('Update', 'Label', 'Flag')):
         buf.append(sha256('|'.join( f"{x}{k}:{v}" for x in xs
           for k,v in sorted(flatten(conf.get(x, []))) ).encode('utf8')))
     for x in sorted(files):
         with open(x, 'rb') as f:
             buf[i].update(f"|file.{x}:".encode('utf8') + f.read())
+    buf[0].update(conf['ID'].encode('ascii'))
     return [ x.hexdigest() for x in buf ]
 
 
@@ -238,7 +234,7 @@ def parse(name, conf, params, hold):
     conf['$hash'] = hash = makeHash(conf, files)
     print(f"{name} (hash)", *hash, sep='\n  ')
     out = updateCache(name, conf, hold)
-    params.update( xs for xs in flatten(out, name) if xs[0] in params )
+    params.update( x for x in flatten(out, name) if x[0] in params )
     params[name] = conf['ID']
     return True
 
@@ -264,9 +260,9 @@ def readConfig(path):
         for conf in specs.values():
             conf[k] = addAlias(conf.get(k), v)
     for conf in specs.values():
-        for x in conf.pop('Alias', []):
-            for k,v in alias[x].items():
-                conf[k] = addAlias(conf.get(k), v)
+        kv = ( y for x in conf.pop('Alias', []) for y in alias[x].items() )
+        for k,v in kv:
+            conf[k] = addAlias(conf.get(k), v)
     return params, specs
 
 

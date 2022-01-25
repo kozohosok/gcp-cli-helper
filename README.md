@@ -3,7 +3,7 @@
 ## gcputil.py
 tiny Python3 script for idempotent deployment with gcloud.
 
-deploy GCP resources with template file like makefile of make command, playbook of Ansible, or recipe of Chef.
+deploy GCP resources with template file like makefile (make command), playbook (Ansible), or recipe (Chef).
 
 automatically determine the order of command execution by the dependencies of parameters in template
 (no circular dependencies assumed).

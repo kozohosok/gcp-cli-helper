@@ -25,19 +25,19 @@ update or replace resources depending on the type of flags to be changed:
 - Defaults: map of default settings for all resources
 - Alias: additional map of default settings to refer by resources key
 - Resources: resource settings
-  - Alias: alias-map keys for additional default settings
   - ID: id of resource
   - Name: optional name to specify resource prior to id creation
+  - Alias: list of alias-map keys for additional default settings
   - Type: type-list of resource
-  - Parent: parent-map of resource (change triggers replace)
+  - Parent: parent-map of resource (required by any command action)
   - Create: optional map of settings (change triggers replace)
   - Update: optional map of settings (change triggers update)
   - Flag: optional list of flags (change triggers update)
   - Label: optional map of labels (change triggers update)
-  - Role: role settings for service-account
-- \_sub_: replace "{key}" with value of other resources or parameters
-- \_zip_: make zip archive from source directory and send gcs
-- \_yml_: make yaml file from source value specified in template
+  - Role: role-list of service-account resource
+- \_sub_: to replace "{key}" with value of other resources or parameters
+- \_zip_: to make zip archive from source directory and send to gcs
+- \_yml_: to make yaml file from source value specified in template
 
 **reference:**
   [gcloud reference](https://cloud.google.com/sdk/gcloud/reference)

@@ -20,5 +20,24 @@ update or replace resources depending on the type of flags to be changed:
 - `make(template_path)`
 - `remove(template_path)`
 
+**keywords in template:
+- Parameters:
+- Defaults:
+- Alias:
+- Resource:
+  - Alias:
+  - ID:
+  - Name:
+  - Type:
+  - Parent:
+  - Create:
+  - Update:
+  - Label:
+  - Role:
+  - Flag:
+- _sub_:
+- _zip_:
+- _yml_:
+
 **reference:**
   [gcloud reference](https://cloud.google.com/sdk/gcloud/reference)

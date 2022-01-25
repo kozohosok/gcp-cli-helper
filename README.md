@@ -35,9 +35,9 @@ update or replace resources depending on the type of flags to be changed:
   - Label:
   - Role:
   - Flag:
-- _sub_:
-- _zip_:
-- _yml_:
+- \_sub_:
+- \_zip_:
+- \_yml_:
 
 **reference:**
   [gcloud reference](https://cloud.google.com/sdk/gcloud/reference)

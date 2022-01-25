@@ -20,7 +20,7 @@ update or replace resources depending on the type of flags to be changed:
 - `make(template_path)`
 - `remove(template_path)`
 
-**keywords in template:
+**keywords in template:**
 - Parameters:
 - Defaults:
 - Alias:
@@ -35,7 +35,7 @@ update or replace resources depending on the type of flags to be changed:
   - Label:
   - Role:
   - Flag:
-- _sub_:
+- '_sub_':
 - _zip_:
 - _yml_:
 

@@ -254,10 +254,9 @@ def readConfig(path):
         data = yaml.safe_load(f)
     params, specs = data.get('Parameters', {}), data['Resources']
     params['$data'], alias = data, data.get('Alias', {})
-    for k,v in data.get('Defaults', {}).items():
-        for conf in specs.values():
-            conf[k] = addAlias(conf.get(k), v)
+    buf = data.get('Defaults', {})
     for conf in specs.values():
+        conf.update( (k, addAlias(conf.get(k), v) for k,v in buf.items() )
         conf.update( (k, addAlias(conf.get(k), v))
           for x in conf.pop('Alias', []) for k,v in alias[x].items() )
     return params, specs

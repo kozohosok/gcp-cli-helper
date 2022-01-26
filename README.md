@@ -3,7 +3,6 @@
 **prerequisite:**
 - Python3
 - pyyaml
-- GCP account
 - GCP credentials
 - Google Cloud SDK
 

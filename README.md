@@ -15,7 +15,7 @@ similar to makefile (make command), playbook (Ansible), or recipe (Chef).
 
 no circular dependencies assumed in template file.
 
-update or replace resources depending on the type of flags to be changed:
+update or replace resources according to the flags to be changed:
 - update to change flag values which could be specified with create/update commands
 - replace to change flag values which could be specified with create command only
 

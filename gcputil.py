@@ -138,10 +138,9 @@ def clean(used, hold):
 
 
 def traverse(el, **kwds):
-    if isinstance(el, list):
-        return [ traverse(x, **kwds) for x in el ]
-    if not isinstance(el, dict):
-        return el
+    t = type(el)
+    if t is not dict:
+        return [ traverse(x, **kwds) for x in el ] if t is list else el
     el = { k: traverse(v, **kwds) for k,v in el.items() }
     k = len(el) == 1 and min(el)
     x = kwds.get(k)
@@ -205,9 +204,10 @@ def makeDepend(conf, params):
 
 
 def flatten(el, key=''):
-    if isinstance(el, dict):
+    t = type(el)
+    if t is dict:
         return ( x for k,v in el.items() for x in flatten(v, f"{key}.{k}") )
-    if not isinstance(el, list):
+    if t is not list:
         return [(key, str(el))]
     return ( x for i,v in enumerate(el) for x in flatten(v, f"{key}[{i}]") )
 
@@ -242,12 +242,10 @@ def parse(name, conf, params, hold):
 def addAlias(el, data):
     if el is None:
         return data
-    buf = set(el)
-    if isinstance(data, dict):
+    buf, t = set(el), type(data)
+    if t is dict:
         return { k: el.get(k) or data[k] for k in buf | set(data) }
-    if isinstance(data, list):
-        return el + [ x for x in data if x not in buf ]
-    return el
+    return el + [ x for x in data if x not in buf ] if t is list else el
 
 
 def readConfig(path):

@@ -25,6 +25,7 @@ update or replace resources according to the flags to be changed:
 
 **methods:**
 - `make(template_path)`
+
   create/update resources and remove storage bucket related to gcf (if any)
 - `remove(template_path)`
 

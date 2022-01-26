@@ -28,7 +28,7 @@ update or replace resources depending on the type of flags to be changed:
 **keywords in template:**
 - Parameters: parameter-map to refer by \_sub_ key
 - Defaults: map of default settings for all resources
-- Alias: additional map of default settings to refer by resources key
+- Alias: additional map of default settings for specific resources
 - Resources: resource settings
   - ID: id of resource
   - Name: optional name to specify resource prior to id creation

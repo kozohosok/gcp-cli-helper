@@ -24,9 +24,7 @@ update or replace resources according to the flags to be changed:
 - cache_dir: directory for cache status (command parameter and result) of resources
 
 **methods:**
-- `make(template_path)`
-
-  create/update resources and remove storage bucket related to gcf (if any)
+- `make(template_path)` -- create/update resources and remove storage bucket related to gcf (if any)
 - `remove(template_path)`
 
 **keywords in template:**

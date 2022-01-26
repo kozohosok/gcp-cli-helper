@@ -11,7 +11,7 @@ tiny Python3 script for idempotent deployment with gcloud.
 
 deploy GCP resources with template file like makefile (make command), playbook (Ansible), or recipe (Chef).
 
-automatically determine the order of command execution by the dependencies of parameters in template
+automatically determine the order of command execution by the dependencies of resource parameters in template
 (no circular dependencies assumed).
 
 update or replace resources depending on the type of flags to be changed:

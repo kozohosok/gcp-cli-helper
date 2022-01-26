@@ -19,7 +19,7 @@ update or replace resources depending on the type of flags to be changed:
 - replace to change flag values which could be specified with create command only
 
 **parameters:**
-- binfmt: path for google cloud SDK
+- binfmt: path for Google Cloud SDK
 - cache_dir: directory for cache status (command parameter and result) of resources
 
 **methods:**

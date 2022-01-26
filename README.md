@@ -32,7 +32,7 @@ update or replace resources depending on the type of flags to be changed:
 - Resources: resource settings
   - ID: id of resource
   - Name: optional name to specify resource prior to id creation
-  - Alias: list of alias-map keys for additional default settings
+  - Alias: optional list of alias-map keys for additional default settings
   - Type: type-list of resource
   - Parent: parent-map of resource (required by any command action)
   - Create: optional map of settings (change triggers replace)

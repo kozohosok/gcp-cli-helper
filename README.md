@@ -1,5 +1,11 @@
 # gcp-cli-helper
 
+**prerequisite:**
+- Python3
+- pyyaml
+- GCP account
+- Google Cloud SDK
+
 ## gcputil.py
 tiny Python3 script for idempotent deployment with gcloud.
 

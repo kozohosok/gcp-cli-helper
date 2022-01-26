@@ -7,7 +7,7 @@
 - Google Cloud SDK
 
 ## gcputil.py
-tiny Python3 script for idempotent deployment with gcloud cli.
+tiny Python3 script aiming idempotent deployment with gcloud cli.
 
 deploy GCP resources via template file like makefile (make command), playbook (Ansible), or recipe (Chef),
 determining the order of command execution by the dependencies of resource settings in template

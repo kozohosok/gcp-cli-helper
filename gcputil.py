@@ -258,9 +258,8 @@ def readConfig(path):
         for conf in specs.values():
             conf[k] = addAlias(conf.get(k), v)
     for conf in specs.values():
-        kv = ( y for x in conf.pop('Alias', []) for y in alias[x].items() )
-        for k,v in kv:
-            conf[k] = addAlias(conf.get(k), v)
+        conf.update( (k, addAlias(conf.get(k), v))
+          for x in conf.pop('Alias', []) for k,v in alias[x].items() )
     return params, specs
 
 

@@ -56,7 +56,7 @@ def flag(s):
 
 
 def flagOption(el, *key):
-    return ( flag(k) + '=' + v for x in key for k,v in el.get(x, {}).items() )
+    return ( flag(k) + f"={v}" for x in key for k,v in el.get(x, {}).items() )
 
 
 def labelOption(conf, cache, isupdate):
@@ -210,7 +210,7 @@ def flatten(el, key=''):
     if t is not list:
         return [(key, str(el))]
     key += '[]'
-    return ( x for v in el for x in flatten(v, key) )
+    return ( y for x in el for y in flatten(x, key) )
 
 
 def makeHash(conf, files):

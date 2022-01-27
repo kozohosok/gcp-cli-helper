@@ -37,7 +37,7 @@ def listBucket(parents):
 
 
 def updateRole(conf, cache):
-    roles, oldroles = [ set(x.get('Role', [])) for x in (conf, cache) ]
+    roles, oldroles = ( set(x.get('Role', [])) for x in (conf, cache) )
     if roles == oldroles:
         return
     s = conf['ID']
@@ -209,18 +209,19 @@ def flatten(el, key=''):
         return ( x for k,v in el.items() for x in flatten(v, f"{key}.{k}") )
     if t is not list:
         return [(key, str(el))]
-    return ( x for i,v in enumerate(el) for x in flatten(v, f"{key}[{i}]") )
+    key += '[]'
+    return ( x for v in el for x in flatten(v, key) )
 
 
 def makeHash(conf, files):
     buf, i = [], conf['Type'][0] in fixmode
-    for xs in (('Type', 'Parent', 'Create'), ('Update', 'Label', 'Flag')):
+    for xs in (('Parent', 'Create'), ('Update', 'Label', 'Flag')):
         buf.append(sha256('|'.join( f"{x}{k}:{v}" for x in xs
           for k,v in sorted(flatten(conf.get(x, []))) ).encode('utf8')))
     for x in sorted(files):
         with open(x, 'rb') as f:
             buf[i].update(f"|file.{x}:".encode('utf8') + f.read())
-    buf[0].update(conf['ID'].encode('ascii'))
+    buf[0].update('/'.join(conf['Type'] + [conf['ID']]).encode('ascii'))
     return [ x.hexdigest() for x in buf ]
 
 
@@ -256,7 +257,7 @@ def readConfig(path):
     params['$data'], alias = data, data.get('Alias', {})
     buf = data.get('Defaults', {})
     for conf in specs.values():
-        conf.update( (k, addAlias(conf.get(k), v) for k,v in buf.items() )
+        conf.update( (k, addAlias(conf.get(k), v)) for k,v in buf.items() )
         conf.update( (k, addAlias(conf.get(k), v))
           for x in conf.pop('Alias', []) for k,v in alias[x].items() )
     return params, specs

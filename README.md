@@ -19,9 +19,11 @@ update or replace resources according to the flags to be changed:
 - update to change flag values which could be specified with create/update commands
 - replace to change flag values which could be specified with create command only
 
+changed flags shall be detected after comparing previous settings in cache with current settings.
+
 **parameters:**
 - binfmt: path for Google Cloud SDK
-- cache_dir: directory for cache status (command parameter and result) of resources
+- cache_dir: directory for cache status (command settings and result) of resources
 
 **methods:**
 - `make(template_path)` -- create/update resources and remove storage bucket related to gcf (if any)

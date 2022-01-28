@@ -175,7 +175,8 @@ def _sub(s, params, wait=None):
         if p is not None:
             xs[i] = p + y
         elif wait is not None:
-            params[x] = wait.add(x)
+            params[x] = params[x.split('.', 1)[0]]
+            wait.add(x)
     return ''.join(xs)
 
 
@@ -255,6 +256,7 @@ def readConfig(path):
         data = yaml.safe_load(f)
     params, specs = data.get('Parameters', {}), data['Resources']
     params['$data'], alias = data, data.get('Alias', {})
+    params.update( (x, None) for x in specs )
     buf = data.get('Defaults', {})
     for conf in specs.values():
         conf.update( (k, addAlias(conf.get(k), v)) for k,v in buf.items() )

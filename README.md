@@ -34,10 +34,10 @@ changed flags shall be detected after comparing previous settings in cache with 
 - Defaults: map of default settings for all resources
 - Alias: additional map of default settings for specific resources
 - Resources: resource settings
+  - Type: type-list of resource
   - ID: id of resource
   - Name: optional name to specify resource prior to id creation
   - Alias: optional list of alias-map keys for additional default settings
-  - Type: type-list of resource
   - Parent: parent-map of resource (required by any command action)
   - Create: optional map of settings (change triggers replace)
   - Update: optional map of settings (change triggers update)

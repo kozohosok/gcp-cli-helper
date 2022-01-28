@@ -114,6 +114,7 @@ def updateCache(name, conf, hold):
         out = updateResource(conf, {})
         hold['$bye'].append(cache)
     elif diff[1]:
+        conf['ID'] = (cache or conf)['ID']
         out = updateResource(conf, cache)
     elif not updateRole(conf, cache):
         print('  ---- not changed ----')

@@ -117,6 +117,7 @@ def updateCache(name, conf, hold):
         out = updateResource(conf, cache)
     elif not updateRole(conf, cache):
         print('  ---- not changed ----')
+        conf['ID'] = cache['ID']
         return out
     hold[conf['Type'][0]].append(out['name'])
     if not os.path.isdir(cache_dir):

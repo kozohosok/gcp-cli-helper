@@ -42,7 +42,7 @@ changed flags shall be detected after comparing previous settings in cache with 
   - Create: optional map of settings (change triggers replace)
   - Update: optional map of settings (change triggers update)
   - Flag: optional list of flags (change triggers update)
-  - Label: optional map of labels (change triggers update)
+  - Tag: optional map of key-value labels, env-vars (change triggers update)
   - Role: role-list of service-account resource
 - \_sub_: to replace "{key}" with value of other resources or parameters
 - \_zip_: to make zip archive from source directory and send to gcs

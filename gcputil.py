@@ -55,24 +55,39 @@ def flag(s):
     return '-' + ''.join( '-' + x.lower() if x.isupper() else x for x in s )
 
 
-def flagOption(el, *key):
+def flagOption(conf, cache):
+    xs = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
+    for x in xs & set(cache.get('Update', [])) - set(conf.get('Update', [])):
+        yield flag(f"Clear{x}")
+    for x in conf.get('Flag', []):
+        yield flag(x)
+
+
+def flagValue(el, *key):
     return ( flag(k) + f"={v}" for x in key for k,v in el.get(x, {}).items() )
 
 
-def labelOption(conf, cache, isupdate):
-    labels, oldlabels = conf.get('Label', {}), cache.get('Label', {})
+def tagValue(conf, cache, isupdate):
+    tags, oldtags = conf.get('Tag', {}), cache.get('Tag', {})
+    labels, oldlabels = tags.get('Labels', {}), oldtags.get('Labels', {})
     xs = set(oldlabels) - set(labels)
     if xs:
         yield '--remove-labels=' + ','.join(xs)
     xs = { f"{k}={v}" for k,v in labels.items() if v != oldlabels.get(k) }
     if xs:
-        yield '--update-labels' if cache or isupdate else '--labels'
+        yield '--update-labels' if isupdate else '--labels'
         yield ','.join(xs)
+    xs = set(tags) - {'Labels'}
+    for x in set(oldtags) - {'Labels'} - xs:
+        yield flag(f"Clear{x}")
+    for x in xs:
+        yield flag(f"Set{x}")
+        yield ','.join( f"{k}={v}" for k,v in tags[x].items() )
 
 
 def _gcloud(conf, mode, name=None, opts=(), **kwds):
     args = conf['Type'] + [mode, name or conf['ID']]
-    args += flagOption(conf, 'Parent')
+    args += flagValue(conf, 'Parent')
     args += ['--quiet', '--format=yaml']
     args += ( x for xs in opts for x in xs )
     return call('gcloud', *args, **kwds)
@@ -81,46 +96,46 @@ def _gcloud(conf, mode, name=None, opts=(), **kwds):
 fixmode = dict(functions='deploy')
 
 def updateResource(conf, cache):
-    fix = fixmode.get(conf['Type'][0])
-    mode = fix or ('update' if cache else 'create')
-    opts = [labelOption(conf, cache, fix), map(flag, conf.get('Flag', [])),
-      flagOption(conf, 'Create', 'Update')]
+    if cache:
+        conf['ID'] = cache['ID']
+    fix, create = fixmode.get(conf['Type'][0]), len(cache) < 2 and 'create'
+    name = create and conf.get('Name')
+    opts = [tagValue(conf, cache, fix or not create),
+      flagValue(conf, 'Create', 'Update'), flagOption(conf, cache)]
     kwds = {} if conf.pop('PipeErr', True) else {'stderr': None}
-    out = _gcloud(conf, mode, not cache and conf.get('Name'), opts, **kwds)
+    out = _gcloud(conf, fix or create or 'update', name, opts, **kwds)
     updateRole(conf, cache)
     return yaml.safe_load(out or _gcloud(conf, 'describe'))
 
 
-def deleteResource(conf, path):
+def deleteResource(conf, cache_path):
     _gcloud(conf, 'delete')
-    if os.path.isfile(path):
-        os.remove(path)
+    if os.path.isfile(cache_path):
+        os.remove(cache_path)
 
 
-def readCache(path):
-    if not os.path.isfile(path):
+def readCache(cache_path):
+    if not os.path.isfile(cache_path):
         return {}, None
-    with open(path) as f:
+    with open(cache_path) as f:
         data = yaml.safe_load(f)
     return data['Input'], data['Output']
 
 
-def updateCache(name, conf, hold):
-    cache_path = cache_dir + name
+def updateCache(name, conf, hold, cache_path):
     cache, out = readCache(cache_path)
     diff = [ x != y for x,y in zip(cache.get('$hash', '??'), conf['$hash']) ]
-    if cache and diff[0]:
-        conf['ID'] += '-0' if cache['ID'] == conf['ID'] else ''
-        out = updateResource(conf, {})
-        hold['$bye'].append(cache)
-    elif diff[1]:
-        conf['ID'] = (cache or conf)['ID']
+    if any(diff):
+        if cache and diff[0]:
+            hold['$bye'].append(cache)
+            idx = [ x['Type'] + [x['ID']] for x in (conf, cache) ]
+            cache = {'ID': conf['ID'] + '-0'} if idx[0] == idx[1] else {}
         out = updateResource(conf, cache)
+        hold[conf['Type'][0]].append(out['name'])
     elif not updateRole(conf, cache):
         print('  ---- not changed ----')
         conf['ID'] = cache['ID']
         return out
-    hold[conf['Type'][0]].append(out['name'])
     if not os.path.isdir(cache_dir):
         os.makedirs(cache_dir)
     with open(cache_path, 'w') as f:
@@ -149,8 +164,8 @@ def traverse(el, **kwds):
     return x[0](el[k], *x[1:]) if x else el
 
 
-def mtime(x):
-    return os.stat(x).st_mtime
+def mtime(path):
+    return os.stat(path).st_mtime
 
 
 def _zip(srcdst, files):
@@ -189,14 +204,13 @@ def _yml(srcdst, params, wait, files=None):
     if wait or files is None:
         return dst
     files.add(dst)
-    s = yaml.dump(data).encode('utf8')
+    diff, s = True, yaml.dump(data).encode('utf8')
     if os.path.isfile(dst):
         with open(dst, 'rb') as f:
-            old = sha256(f.read()).digest()
-        if old == sha256(s).digest():
-            return dst
-    with open(dst, 'wb') as f:
-        f.write(s)
+            diff = sha256(f.read()).digest() != sha256(s).digest()
+    if diff:
+        with open(dst, 'wb') as f:
+            f.write(s)
     return dst
 
 
@@ -218,7 +232,7 @@ def flatten(el, key=''):
 
 def makeHash(conf, files):
     buf, i = [], conf['Type'][0] in fixmode
-    for xs in (('Parent', 'Create'), ('Update', 'Label', 'Flag')):
+    for xs in (('Parent', 'Create'), ('Update', 'Flag', 'Tag')):
         buf.append(sha256('|'.join( f"{x}{k}:{v}" for x in xs
           for k,v in sorted(flatten(conf.get(x, []))) ).encode('utf8')))
     for x in sorted(files):
@@ -237,7 +251,7 @@ def parse(name, conf, params, hold):
         return print(name, 'needs', wait)
     conf['$hash'] = hash = makeHash(conf, files)
     print(f"{name} (hash)", *hash, sep='\n  ')
-    out = updateCache(name, conf, hold)
+    out = updateCache(name, conf, hold, cache_dir + name)
     params.update( x for x in flatten(out, name) if x[0] in params )
     params[name] = conf['ID']
     return True

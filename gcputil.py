@@ -55,11 +55,11 @@ def flag(s):
     return '-' + ''.join( '-' + x.lower() if x.isupper() else x for x in s )
 
 
-clearflag = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
+clearopt = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
 
 def flagOption(conf, cache):
     keys, oldkeys = ( set(x.get('Update', [])) for x in (conf, cache) )
-    for x in clearflag & oldkeys - keys:
+    for x in clearopt & oldkeys - keys:
         yield flag(f"Clear{x}")
     for x in conf.get('Flag', []):
         yield flag(x)
@@ -264,7 +264,7 @@ def addAlias(el, data):
         return data
     buf, t = set(el), type(data)
     if t is dict:
-        return { k: el.get(k) or data[k] for k in buf | set(data) }
+        return { k: addAlias(el.get(k), data[k]) for k in buf | set(data) }
     return el + [ x for x in data if x not in buf ] if t is list else el
 
 

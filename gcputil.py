@@ -259,12 +259,12 @@ def parse(name, conf, params, hold):
     return True
 
 
-def addAlias(el, data):
+def merge(el, data):
     if el is None:
         return data
     buf, t = set(el), type(data)
     if t is dict:
-        return { k: addAlias(el.get(k), data[k]) for k in buf | set(data) }
+        return { k: merge(el.get(k), data.get(k)) for k in buf | set(data) }
     return el + [ x for x in data if x not in buf ] if t is list else el
 
 
@@ -277,8 +277,8 @@ def readConfig(path):
     params.update( (x, None) for x in specs )
     buf = data.get('Defaults', {})
     for conf in specs.values():
-        conf.update( (k, addAlias(conf.get(k), v)) for k,v in buf.items() )
-        conf.update( (k, addAlias(conf.get(k), v))
+        conf.update( (k, merge(conf.get(k), v)) for k,v in buf.items() )
+        conf.update( (k, merge(conf.get(k), v))
           for x in conf.pop('Alias', []) for k,v in alias[x].items() )
     return params, specs
 

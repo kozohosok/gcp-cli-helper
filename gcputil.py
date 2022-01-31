@@ -277,9 +277,8 @@ def readConfig(path):
     params.update( (x, None) for x in specs )
     buf = data.get('Defaults', {})
     for conf in specs.values():
-        conf.update( (k, merge(conf.get(k), v)) for k,v in buf.items() )
-        conf.update( (k, merge(conf.get(k), v))
-          for x in conf.pop('Alias', []) for k,v in alias[x].items() )
+        for x in [buf] + list(map(alias.get, conf.pop('Alias', []))):
+            conf.update( (k, merge(conf.get(k), v)) for k,v in x.items() )
     return params, specs
 
 

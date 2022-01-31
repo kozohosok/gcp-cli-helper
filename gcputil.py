@@ -55,9 +55,11 @@ def flag(s):
     return '-' + ''.join( '-' + x.lower() if x.isupper() else x for x in s )
 
 
+clearflag = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
+
 def flagOption(conf, cache):
-    xs = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
-    for x in xs & set(cache.get('Update', [])) - set(conf.get('Update', [])):
+    keys, oldkeys = ( set(x.get('Update', [])) for x in (conf, cache) )
+    for x in clearflag & oldkeys - keys:
         yield flag(f"Clear{x}")
     for x in conf.get('Flag', []):
         yield flag(x)

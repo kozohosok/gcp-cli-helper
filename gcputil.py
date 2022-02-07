@@ -317,12 +317,12 @@ def readConfig(path):
 
 def make(template_path):
     params, specs = readConfig(template_path)
-    kick = defaultdict(set)
+    kick, hold = defaultdict(set), defaultdict(list)
     for name,conf in specs.items():
         for x in makeDepend(conf, params):
             kick[x].add(name)
     deg = Counter( x for xs in kick.values() for x in xs )
-    hold, work = defaultdict(list), set(specs) - set(deg)
+    work = set(specs) - set(deg)
     while work:
         name = work.pop()
         if parse(name, specs[name], params, hold):

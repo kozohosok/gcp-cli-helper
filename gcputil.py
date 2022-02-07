@@ -70,7 +70,7 @@ def flagValue(el, *key):
     return ( flag(k) + f"={v}" for x in key for k,v in el.get(x, {}).items() )
 
 
-def tagValue(conf, cache, isupdate):
+def tagValue(conf, cache, create):
     tags, oldtags = conf.get('Tag', {}), cache.get('Tag', {})
     labels, oldlabels = tags.get('Labels', {}), oldtags.get('Labels', {})
     xs = set(oldlabels) - set(labels)
@@ -78,7 +78,7 @@ def tagValue(conf, cache, isupdate):
         yield '--remove-labels=' + ','.join(xs)
     xs = set(labels.items()) - set(oldlabels.items())
     if xs:
-        yield '--update-labels' if isupdate else '--labels'
+        yield '--labels' if create else '--update-labels'
         yield ','.join( f"{k}={v}" for k,v in xs)
     xs = set(tags) - {'Labels'}
     for x in set(oldtags) - {'Labels'} - xs:

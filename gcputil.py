@@ -96,11 +96,9 @@ def bqtagValue(conf, cache, create):
     act = '' if create else 'set_'
     for k,v in set(labels.items()) - set(oldlabels.items()):
         yield f"--{act}label={k}:{v}"
-    xs = oldtags.get('Schema', {})
-    xs.update(tags.get('Schema', {}))
-    schema = ','.join(map(':'.join, xs.items()))
-    if schema:
-        yield '--schema=' + schema
+    xs = tags.get('Schema')
+    if xs:
+        yield '--schema=' + ','.join(map(':'.join, xs.items()))
 
 
 def _gcloud(conf, mode, name=None, opts=(), **kwds):

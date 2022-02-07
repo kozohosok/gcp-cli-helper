@@ -3,6 +3,7 @@
 '''
 
 import os
+import json
 import yaml
 import zipfile as zf
 from collections import Counter, defaultdict
@@ -75,16 +76,31 @@ def tagValue(conf, cache, isupdate):
     xs = set(oldlabels) - set(labels)
     if xs:
         yield '--remove-labels=' + ','.join(xs)
-    xs = { f"{k}={v}" for k,v in labels.items() if v != oldlabels.get(k) }
+    xs = set(labels.items()) - set(oldlabels.items())
     if xs:
         yield '--update-labels' if isupdate else '--labels'
-        yield ','.join(xs)
+        yield ','.join( f"{k}={v}" for k,v in xs)
     xs = set(tags) - {'Labels'}
     for x in set(oldtags) - {'Labels'} - xs:
         yield flag(f"Clear{x}")
     for x in xs:
         yield flag(f"Set{x}")
         yield ','.join( f"{k}={v}" for k,v in tags[x].items() )
+
+
+def bqtagValue(conf, cache, create):
+    tags, oldtags = conf.get('Tag', {}), cache.get('Tag', {})
+    labels, oldlabels = tags.get('Labels', {}), oldtags.get('Labels', {})
+    for x in set(oldlabels) - set(labels):
+        yield f"--clear_label={x}:{oldlabels[x]}"
+    act = '' if create else 'set_'
+    for k,v in set(labels.items()) - set(oldlabels.items()):
+        yield f"--{act}label={k}:{v}"
+    xs = oldtags.get('Schema', {})
+    xs.update(tags.get('Schema', {}))
+    schema = ','.join(map(':'.join, xs.items()))
+    if schema:
+        yield '--schema=' + schema
 
 
 def _gcloud(conf, mode, name=None, opts=(), **kwds):
@@ -95,23 +111,41 @@ def _gcloud(conf, mode, name=None, opts=(), **kwds):
     return call('gcloud', *args, **kwds)
 
 
+def _bq(conf, mode, opts=(), **kwds):
+    args = [dict(create='mk', delete='rm').get(mode, mode)]
+    if args[0] != mode:
+        args.append('--force=true')
+    args += ( x for xs in opts for x in xs )
+    args += ['--format=json', conf['ID']]
+    return call('bq', *args, **kwds)
+
+
+def updateBigqueryResource(conf, cache, create, **kwds):
+    ks = ['Create', 'Update'] if create else ['Update']
+    opts = [flagValue(conf, *ks), bqtagValue(conf, cache, create)]
+    _bq(conf, create or 'update', opts, **kwds)
+    return json.loads(_bq(conf, 'show'))
+
+
 fixmode = dict(functions='deploy')
 
 def updateResource(conf, cache):
     if cache:
         conf['ID'] = cache['ID']
     create = len(cache) < 2 and 'create'
+    kwds = {} if conf.pop('PipeErr', True) else {'stderr': None}
+    if conf['Type'][0] == 'bigquery':
+        return updateBigqueryResource(conf, cache, create, **kwds)
     fix, name = fixmode.get(conf['Type'][0]), create and conf.get('Name')
     opts = [flagValue(conf, 'Create', 'Update'), flagOption(conf, cache),
       tagValue(conf, cache, fix or not create)]
-    kwds = {} if conf.pop('PipeErr', True) else {'stderr': None}
     out = _gcloud(conf, fix or create or 'update', name, opts, **kwds)
     updateRole(conf, cache)
     return yaml.safe_load(out or _gcloud(conf, 'describe'))
 
 
 def deleteResource(conf, cache_path=None):
-    _gcloud(conf, 'delete')
+    (_bq if conf['Type'][0] == 'bigquery' else _gcloud)(conf, 'delete')
     if cache_path and os.path.isfile(cache_path):
         os.remove(cache_path)
 
@@ -143,7 +177,7 @@ def updateCache(path, name, conf, hold):
             idx = [ x['Type'] + [x['ID']] for x in (conf, cache) ]
             cache = {'ID': conf['ID'] + '-0'} if idx[0] == idx[1] else {}
         out = updateResource(conf, cache)
-        hold[conf['Type'][0]].append(out['name'])
+        hold[conf['Type'][0]].append(out.get('id') or out['name'])
     elif not updateRole(conf, cache):
         print('  ---- not changed ----')
         conf['ID'] = cache['ID']

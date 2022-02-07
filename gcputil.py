@@ -100,32 +100,42 @@ fixmode = dict(functions='deploy')
 def updateResource(conf, cache):
     if cache:
         conf['ID'] = cache['ID']
-    fix, create = fixmode.get(conf['Type'][0]), len(cache) < 2 and 'create'
-    name = create and conf.get('Name')
-    opts = [tagValue(conf, cache, fix or not create),
-      flagValue(conf, 'Create', 'Update'), flagOption(conf, cache)]
+    create = len(cache) < 2 and 'create'
+    fix, name = fixmode.get(conf['Type'][0]), create and conf.get('Name')
+    opts = [flagValue(conf, 'Create', 'Update'), flagOption(conf, cache),
+      tagValue(conf, cache, fix or not create)]
     kwds = {} if conf.pop('PipeErr', True) else {'stderr': None}
     out = _gcloud(conf, fix or create or 'update', name, opts, **kwds)
     updateRole(conf, cache)
     return yaml.safe_load(out or _gcloud(conf, 'describe'))
 
 
-def deleteResource(conf, cache_path):
+def deleteResource(conf, cache_path=None):
     _gcloud(conf, 'delete')
-    if os.path.isfile(cache_path):
+    if cache_path and os.path.isfile(cache_path):
         os.remove(cache_path)
 
 
-def readCache(cache_path):
-    if not os.path.isfile(cache_path):
-        return {}, None
-    with open(cache_path) as f:
-        data = yaml.safe_load(f)
+def write(s, path):
+    dir = os.path.dirname(path)
+    if dir and not os.path.isdir(dir):
+        os.makedirs(dir)
+    with open(path, 'w') as f:
+        f.write(s)
+
+
+def read(path, mode='r'):
+    with open(path, mode) as f:
+        return f.read()
+
+
+def readCache(path):
+    data = yaml.safe_load(read(path))
     return data['Input'], data['Output']
 
 
-def updateCache(name, conf, hold, cache_path):
-    cache, out = readCache(cache_path)
+def updateCache(path, name, conf, hold):
+    cache, out = readCache(path) if os.path.isfile(path) else ({}, None)
     diff = [ x != y for x,y in zip(cache.get('$hash', '??'), conf['$hash']) ]
     if any(diff):
         if cache and diff[0]:
@@ -138,16 +148,13 @@ def updateCache(name, conf, hold, cache_path):
         print('  ---- not changed ----')
         conf['ID'] = cache['ID']
         return out
-    if not os.path.isdir(cache_dir):
-        os.makedirs(cache_dir)
-    with open(cache_path, 'w') as f:
-        yaml.dump(dict(Input=conf, Output=out), f)
+    write(yaml.dump(dict(Input=conf, Output=out)), path)
     return out
 
 
 def clean(used, hold):
     for conf in hold['$bye'][::-1]:
-        _gcloud(conf, 'delete')
+        deleteResource(conf)
     for name in set(map(os.path.basename, iglob(cache_dir + '*'))) - used:
         path = cache_dir + name
         deleteResource(readCache(path)[0], path)
@@ -206,13 +213,9 @@ def _yml(srcdst, params, wait, files=None):
     if wait or files is None:
         return dst
     files.add(dst)
-    diff, s = True, yaml.dump(data).encode('utf8')
-    if os.path.isfile(dst):
-        with open(dst, 'rb') as f:
-            diff = sha256(f.read()).digest() != sha256(s).digest()
-    if diff:
-        with open(dst, 'wb') as f:
-            f.write(s)
+    s = yaml.dump(data)
+    if not os.path.isfile(dst) or read(dst) != s:
+        write(s, dst)
     return dst
 
 
@@ -238,8 +241,7 @@ def makeHash(conf, files):
         buf.append(sha256('|'.join( f"{x}{k}:{v}" for x in xs
           for k,v in sorted(flatten(conf.get(x, []))) ).encode('utf8')))
     for x in sorted(files):
-        with open(x, 'rb') as f:
-            buf[i].update(f"|file.{x}:".encode('utf8') + f.read())
+        buf[i].update(f"|file.{x}:".encode('utf8') + read(x, 'rb'))
     buf[0].update('/'.join(conf['Type'] + [conf['ID']]).encode('ascii'))
     return [ x.hexdigest() for x in buf ]
 
@@ -253,7 +255,7 @@ def parse(name, conf, params, hold):
         return print(name, 'needs', wait)
     conf['$hash'] = hash = makeHash(conf, files)
     print(f"{name} (hash)", *hash, sep='\n  ')
-    out = updateCache(name, conf, hold, cache_dir + name)
+    out = updateCache(cache_dir + name, name, conf, hold)
     params.update( x for x in flatten(out, name) if x[0] in params )
     params[name] = conf['ID']
     return True
@@ -270,8 +272,7 @@ def merge(el, data):
 
 def readConfig(path):
     print('template:', path)
-    with open(path) as f:
-        data = yaml.safe_load(f)
+    data = yaml.safe_load(read(path))
     params, specs = data.get('Parameters', {}), data['Resources']
     params['$data'], alias = data, data.get('Alias', {})
     params.update( (x, None) for x in specs )

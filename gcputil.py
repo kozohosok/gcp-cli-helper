@@ -166,7 +166,7 @@ def readCache(path):
     return data['Input'], data['Output']
 
 
-def updateCache(path, name, conf, hold):
+def updateCache(path, conf, hold):
     cache, out = readCache(path) if os.path.isfile(path) else ({}, None)
     diff = [ x != y for x,y in zip(cache.get('$hash', '??'), conf['$hash']) ]
     if any(diff):
@@ -287,7 +287,7 @@ def parse(name, conf, params, hold):
         return print(name, 'needs', wait)
     conf['$hash'] = hash = makeHash(conf, files)
     print(f"{name} (hash)", *hash, sep='\n  ')
-    out = updateCache(cache_dir + name, name, conf, hold)
+    out = updateCache(cache_dir + name, conf, hold)
     params.update( x for x in flatten(out, name) if x[0] in params )
     params[name] = conf['ID']
     return True

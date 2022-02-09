@@ -76,10 +76,10 @@ def tagValue(conf, cache, create):
     xs = set(oldlabels) - set(labels)
     if xs:
         yield '--remove-labels=' + ','.join(xs)
-    xs = set(labels.items()) - set(oldlabels.items())
-    if xs:
+    kv = set(labels.items()) - set(oldlabels.items())
+    if kv:
         yield '--labels' if create else '--update-labels'
-        yield ','.join( f"{k}={v}" for k,v in xs)
+        yield ','.join( f"{k}={v}" for k,v in kv )
     xs = set(tags) - {'Labels'}
     for x in set(oldtags) - {'Labels'} - xs:
         yield flag(f"Clear{x}")
@@ -96,9 +96,9 @@ def bqtagValue(conf, cache, create):
     act = '' if create else 'set_'
     for k,v in set(labels.items()) - set(oldlabels.items()):
         yield f"--{act}label={k}:{v}"
-    xs = tags.get('Schema')
-    if xs:
-        yield '--schema=' + ','.join(map(':'.join, xs.items()))
+    kv = tags.get('Schema')
+    if kv:
+        yield '--schema=' + ','.join( f"{k}:{v}" for k,v in kv )
 
 
 def _gcloud(conf, mode, name=None, opts=(), **kwds):
@@ -136,7 +136,7 @@ def updateResource(conf, cache):
         return updateBigqueryResource(conf, cache, create, **kwds)
     fix, name = fixmode.get(conf['Type'][0]), create and conf.get('Name')
     opts = [flagValue(conf, 'Create', 'Update'), flagOption(conf, cache),
-      tagValue(conf, cache, fix or not create)]
+      tagValue(conf, cache, create and not fix)]
     out = _gcloud(conf, fix or create or 'update', name, opts, **kwds)
     updateRole(conf, cache)
     return yaml.safe_load(out or _gcloud(conf, 'describe'))

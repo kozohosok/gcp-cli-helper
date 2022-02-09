@@ -56,6 +56,10 @@ def flag(s):
     return '-' + ''.join( '-' + x.lower() if x.isupper() else x for x in s )
 
 
+def bqflag(s):
+    return '--' + flag(s).lstrip('-').replace('-', '_')
+
+
 clearopt = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
 
 def flagOption(conf, cache):
@@ -68,6 +72,22 @@ def flagOption(conf, cache):
 
 def flagValue(el, *key):
     return ( flag(k) + f"={v}" for x in key for k,v in el.get(x, {}).items() )
+
+
+def bqflagValue(conf, cache, create):
+    key = ['Create', 'Update'] if create else ['Update']
+    for k,v in ( kv for x in key for kv in conf.get(x, {}).items() ):
+        yield bqflag(k) + f"={v}"
+    tags, oldtags = conf.get('Tag', {}), cache.get('Tag', {})
+    labels, oldlabels = tags.get('Labels', {}), oldtags.get('Labels', {})
+    for x in set(oldlabels) - set(labels):
+        yield f"--clear_label={x}:{oldlabels[x]}"
+    act = '' if create else 'set_'
+    for k,v in set(labels.items()) - set(oldlabels.items()):
+        yield f"--{act}label={k}:{v}"
+    kv = tags.get('Schema')
+    if kv:
+        yield '--schema=' + ','.join( f"{k}:{v}" for k,v in kv )
 
 
 def tagValue(conf, cache, create):
@@ -88,19 +108,6 @@ def tagValue(conf, cache, create):
         yield ','.join( f"{k}={v}" for k,v in tags[x].items() )
 
 
-def bqtagValue(conf, cache, create):
-    tags, oldtags = conf.get('Tag', {}), cache.get('Tag', {})
-    labels, oldlabels = tags.get('Labels', {}), oldtags.get('Labels', {})
-    for x in set(oldlabels) - set(labels):
-        yield f"--clear_label={x}:{oldlabels[x]}"
-    act = '' if create else 'set_'
-    for k,v in set(labels.items()) - set(oldlabels.items()):
-        yield f"--{act}label={k}:{v}"
-    kv = tags.get('Schema')
-    if kv:
-        yield '--schema=' + ','.join( f"{k}:{v}" for k,v in kv )
-
-
 def _gcloud(conf, mode, name=None, opts=(), **kwds):
     args = conf['Type'] + [mode, name or conf['ID']]
     args += flagValue(conf, 'Parent')
@@ -118,13 +125,6 @@ def _bq(conf, mode, opts=(), **kwds):
     return call('bq', *args, **kwds)
 
 
-def updateBigqueryResource(conf, cache, create, **kwds):
-    ks = ['Create', 'Update'] if create else ['Update']
-    opts = [flagValue(conf, *ks), bqtagValue(conf, cache, create)]
-    _bq(conf, create or 'update', opts, **kwds)
-    return json.loads(_bq(conf, 'show'))
-
-
 fixmode = dict(functions='deploy')
 
 def updateResource(conf, cache):
@@ -133,7 +133,9 @@ def updateResource(conf, cache):
     create = len(cache) < 2 and 'create'
     kwds = {} if conf.pop('PipeErr', True) else {'stderr': None}
     if conf['Type'][0] == 'bigquery':
-        return updateBigqueryResource(conf, cache, create, **kwds)
+        opts = [bqflagValue(conf, cache, create)]
+        _bq(conf, create or 'update', opts, **kwds)
+        return json.loads(_bq(conf, 'show'))
     fix, name = fixmode.get(conf['Type'][0]), create and conf.get('Name')
     opts = [flagValue(conf, 'Create', 'Update'), flagOption(conf, cache),
       tagValue(conf, cache, create and not fix)]

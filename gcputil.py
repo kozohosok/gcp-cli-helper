@@ -108,8 +108,8 @@ def tagValue(conf, cache, create):
         yield ','.join( f"{k}={v}" for k,v in tags[x].items() )
 
 
-def _gcloud(conf, mode, name=None, opts=(), **kwds):
-    args = conf['Type'] + [mode, name or conf['ID']]
+def _gcloud(conf, mode, tmpname=None, opts=(), **kwds):
+    args = conf['Type'] + [mode, tmpname or conf['ID']]
     args += flagValue(conf, 'Parent')
     args += ['--quiet', '--format=yaml']
     args += ( x for xs in opts for x in xs )

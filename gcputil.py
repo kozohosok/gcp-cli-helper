@@ -52,12 +52,12 @@ def updateRole(conf, cache):
     return True
 
 
-def flag(s):
-    return '-' + ''.join( '-' + x.lower() if x.isupper() else x for x in s )
+def flag(s, sep='-'):
+    return '-' + ''.join( sep + x.lower() if x.isupper() else x for x in s )
 
 
 def bqflag(s):
-    return '--' + flag(s).lstrip('-').replace('-', '_')
+    return '--' + flag(s, '_')[2:]
 
 
 clearopt = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
@@ -71,7 +71,8 @@ def flagOption(conf, cache):
 
 
 def flagValue(el, *key):
-    return ( flag(k) + f"={v}" for x in key for k,v in el.get(x, {}).items() )
+    return ( flag(k) + ('' if v is None else f"={v}")
+      for x in key for k,v in el.get(x, {}).items() )
 
 
 def bqflagValue(conf, cache, create):

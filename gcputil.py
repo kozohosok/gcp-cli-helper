@@ -53,12 +53,9 @@ def updateRole(conf, cache):
     return True
 
 
-def flag(s, sep='-'):
-    return '-' + ''.join( sep + x.lower() if x.isupper() else x for x in s )
-
-
-def bqflag(s):
-    return '--' + flag(s, '_')[2:]
+def flag(key, value=None, sep='-'):
+    s = '-' + ''.join( sep + x.lower() if x.isupper() else x for x in key )
+    return s if value is None else f"{s}={value}"
 
 
 clearopt = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
@@ -72,14 +69,13 @@ def flagOption(conf, cache):
 
 
 def flagValue(el, *key):
-    return ( flag(k) + ('' if v is None else f"={v}")
-      for x in key for k,v in el.get(x, {}).items() )
+    return ( flag(k, v) for x in key for k,v in el.get(x, {}).items() )
 
 
 def bqflagValue(conf, cache, create):
     key = ['Create', 'Update'] if create else ['Update']
     for k,v in ( kv for x in key for kv in conf.get(x, {}).items() ):
-        yield bqflag(k) + f"={v}"
+        yield '--' + flag(k, v, '_')[2:]
     tags, oldtags = conf.get('Tag', {}), cache.get('Tag', {})
     labels, oldlabels = tags.get('Labels', {}), oldtags.get('Labels', {})
     for x in set(oldlabels) - set(labels):
@@ -129,13 +125,12 @@ def _bq(conf, mode, opts=(), **kwds):
 
 def _deleteBind(conf, *args):
     ctype, conf0 = conf['Type'], dict(Parent=conf['Parent'].copy())
-    conf0['Type'], name = ctype[1:-1], conf0['Parent'].pop('ID')
-    tags = conf.get('Tag', {})
-    keys = [ k for k,v in tags.items() if type(v) is list ]
-    conf0['Parent'].update(tags)
+    conf0['Type'], tags = ctype[1:-1], conf.get('Tag', {})
+    idx = { k for k,v in tags.items() if type(v) is list }
+    conf0['Parent'].update( (k, tags[k]) for k in set(tags) - idx )
+    keys, name = list(idx), conf0['Parent'].pop('ID')
     for xs in product(*map(tags.get, keys)):
-        conf0['Parent'].update(zip(keys, xs))
-        _gcloud(conf0, 'remove-' + ctype[-1], name)
+        _gcloud(conf0, 'remove-' + ctype[-1], name, [map(flag, keys, xs)])
 
 
 def deleteResource(conf, cache_path=None):
@@ -164,17 +159,18 @@ def _updateBind(conf, cache, create, kwds):
     ctype, conf0 = conf['Type'], dict(Parent=conf['Parent'].copy())
     conf0['Type'], name = ctype[1:-1], conf0['Parent'].pop('ID')
     src = conf.get('Tag', {}), cache.get('Tag', {})
-    keys = list({ k for x in src for k,v in x.items() if type(v) is list })
-    vals, oldvals = ( set(product(*aslist(x, keys))) - {()} for x in src )
-    conf0['Parent'].update(src[0])
+    idx = { k for x in src for k,v in x.items() if type(v) is list }
+    keys = list(idx)
+    vals, oldvals = ( set(product(*aslist(x, keys))) for x in src )
+    oldvals.discard(())
+    conf0['Parent'].update( kv for kv in src[1].items() if kv[0] not in idx )
     for xs in oldvals - vals:
-        conf0['Parent'].update(zip(keys, xs))
-        _gcloud(conf0, 'remove-' + ctype[-1], name)
-    opts = [list(flagValue(conf, 'Create', 'Update'))]
+        _gcloud(conf0, 'remove-' + ctype[-1], name, [map(flag, keys, xs)])
+    opt = list(flagValue(conf, 'Create', 'Update'))
     mode = ('add-' if create else 'update-') + ctype[-1]
+    conf0['Parent'].update( kv for kv in src[0].items() if kv[0] not in idx )
     for xs in vals - oldvals:
-        conf0['Parent'].update(zip(keys, xs))
-        _gcloud(conf0, mode, name, opts, **kwds)
+        _gcloud(conf0, mode, name, [opt, map(flag, keys, xs)], **kwds)
     return dict(id=conf['ID'])
 
 

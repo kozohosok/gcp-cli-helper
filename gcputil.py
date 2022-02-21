@@ -9,6 +9,7 @@ import zipfile as zf
 from collections import Counter, defaultdict
 from glob import iglob
 from hashlib import sha256
+from itertools import product
 from subprocess import PIPE, run
 
 binfmt = 'C:/PATH-TO-GOOGLE-CLOUD-SDK/bin/%s.cmd'
@@ -126,17 +127,25 @@ def _bq(conf, mode, opts=(), **kwds):
     return call('bq', *args, **kwds)
 
 
-fixmode = dict(functions='deploy')
+def _deleteBind(conf, *args):
+    ctype, conf0 = conf['Type'], dict(Parent=conf['Parent'].copy())
+    conf0['Type'], name = ctype[1:-1], conf0['Parent'].pop('ID')
+    tags = conf.get('Tag', {})
+    keys = [ k for k,v in tags.items() if type(v) is list ]
+    conf0['Parent'].update(tags)
+    for xs in product(*map(tags.get, keys)):
+        conf0['Parent'].update(zip(keys, xs))
+        _gcloud(conf0, 'remove-' + ctype[-1], name)
 
-def updateResource(conf, cache):
-    if cache:
-        conf['ID'] = cache['ID']
-    create = len(cache) < 2 and 'create'
-    kwds = {} if conf.pop('PipeErr', True) else {'stderr': None}
-    if conf['Type'][0] == 'bigquery':
-        opts = [bqflagValue(conf, cache, create)]
-        _bq(conf, create or 'update', opts, **kwds)
-        return json.loads(_bq(conf, 'show'))
+
+def deleteResource(conf, cache_path=None):
+    f = dict(bigquery=_bq, _bind=_deleteBind).get(conf['Type'][0], _gcloud)
+    f(conf, 'delete')
+    if cache_path and os.path.isfile(cache_path):
+        os.remove(cache_path)
+
+
+def _updateGcloud(conf, cache, create, kwds):
     fix, name = fixmode.get(conf['Type'][0]), create and conf.get('Name')
     opts = [flagValue(conf, 'Create', 'Update'), flagOption(conf, cache),
       tagValue(conf, cache, create and not fix)]
@@ -145,10 +154,43 @@ def updateResource(conf, cache):
     return yaml.safe_load(out or _gcloud(conf, 'describe'))
 
 
-def deleteResource(conf, cache_path=None):
-    (_bq if conf['Type'][0] == 'bigquery' else _gcloud)(conf, 'delete')
-    if cache_path and os.path.isfile(cache_path):
-        os.remove(cache_path)
+def aslist(el, keys):
+    for x in map(el.get, keys):
+        if x is not None:
+            yield x if type(x) is list else [x]
+
+
+def _updateBind(conf, cache, create, kwds):
+    ctype, conf0 = conf['Type'], dict(Parent=conf['Parent'].copy())
+    conf0['Type'], name = ctype[1:-1], conf0['Parent'].pop('ID')
+    src = conf.get('Tag', {}), cache.get('Tag', {})
+    keys = list({ k for x in src for k,v in x.items() if type(v) is list })
+    vals, oldvals = ( set(product(*aslist(x, keys))) - {()} for x in src )
+    conf0['Parent'].update(src[0])
+    for xs in oldvals - vals:
+        conf0['Parent'].update(zip(keys, xs))
+        _gcloud(conf0, 'remove-' + ctype[-1], name)
+    opts = [list(flagValue(conf, 'Update'))]
+    for xs in vals - oldvals:
+        conf0['Parent'].update(zip(keys, xs))
+        _gcloud(conf0, 'add-' + ctype[-1], name, opts, **kwds)
+    return dict(id=conf['ID'])
+
+
+def _updateBq(conf, cache, create, kwds):
+    _bq(conf, create or 'update', [bqflagValue(conf, cache, create)], **kwds)
+    return json.loads(_bq(conf, 'show'))
+
+
+fixmode = dict(functions='deploy')
+
+def updateResource(conf, cache):
+    if cache:
+        conf['ID'] = cache['ID']
+    kwds = {} if conf.pop('PipeErr', True) else {'stderr': None}
+    fs = dict(bigquery=_updateBq, _bind=_updateBind)
+    f = fs.get(conf['Type'][0], _updateGcloud)
+    return f(conf, cache, len(cache) < 2 and 'create', kwds)
 
 
 def write(s, path):

@@ -170,10 +170,11 @@ def _updateBind(conf, cache, create, kwds):
     for xs in oldvals - vals:
         conf0['Parent'].update(zip(keys, xs))
         _gcloud(conf0, 'remove-' + ctype[-1], name)
-    opts = [list(flagValue(conf, 'Update'))]
+    opts = [list(flagValue(conf, 'Create', 'Update'))]
+    mode = ('add-' if create else 'update-') + ctype[-1]
     for xs in vals - oldvals:
         conf0['Parent'].update(zip(keys, xs))
-        _gcloud(conf0, 'add-' + ctype[-1], name, opts, **kwds)
+        _gcloud(conf0, mode, name, opts, **kwds)
     return dict(id=conf['ID'])
 
 

@@ -17,9 +17,11 @@ update or replace resources according to the flags to be changed:
 - update to change flag values which could be specified with create/update commands
 - replace to change flag values which could be specified with create command only
 
-add, update or remove bindings to resources specifying special type "\_bind" such as:
+add, update or remove bindings to resources by specifying special type "\_bind" such as:
 - iam role: \[\_bind, projects, iam-policy-binding]
+  possible action: add-iam-policy-binding, remove-iam-policy-binding
 - backend: \[\_bind, compute, backend-services, backend]
+  possible action: add-iam-backend, remove-backend, update-backend
 - ... and so on.
 
 changed flags shall be detected after comparing previous settings in cache with current settings in template file.
@@ -39,7 +41,7 @@ no circular dependencies assumed in template file.
 - Defaults: map of default settings for all resources
 - Alias: additional map of default settings for specific resources
 - Resources: resource settings
-  - Type: type-list of resource to create/update ("\_bind" type to add/remove bindings)
+  - Type: type-list of resource to create/update ("\_bind" type to add/remove binding)
   - ID: id of resource
   - Name: optional name to specify resource prior to id creation
   - Alias: optional list of alias-map keys for additional default settings

@@ -13,8 +13,6 @@ deploy GCP resources via template file
 determining the order of command execution by dependencies of resource settings in template,
 similar to makefile (make command), playbook (Ansible), or recipe (Chef).
 
-no circular dependencies assumed in template file.
-
 update or replace resources according to the flags to be changed:
 - update to change flag values which could be specified with create/update commands
 - replace to change flag values which could be specified with create command only
@@ -22,6 +20,8 @@ update or replace resources according to the flags to be changed:
 add, update or remove bindings (such as roles) with special type "\_bind"
 
 changed flags shall be detected after comparing previous settings in cache with current settings.
+
+no circular dependencies assumed in template file.
 
 **parameters:**
 - binfmt: path for Google Cloud SDK

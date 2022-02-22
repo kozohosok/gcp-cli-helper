@@ -19,9 +19,9 @@ update or replace resources according to the flags to be changed:
 
 add, update or remove bindings to resources by specifying special type "\_bind" such as:
 - iam role: \[\_bind, projects, iam-policy-binding]
-  possible action: add-iam-policy-binding, remove-iam-policy-binding
+  - possible action: add-iam-policy-binding, remove-iam-policy-binding
 - backend: \[\_bind, compute, backend-services, backend]
-  possible action: add-iam-backend, remove-backend, update-backend
+  - possible action: add-iam-backend, remove-backend, update-backend
 - ... and so on.
 
 changed flags shall be detected after comparing previous settings in cache with current settings in template file.

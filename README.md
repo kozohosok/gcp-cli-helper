@@ -22,7 +22,7 @@ add, update or remove bindings to resources specifying special type "\_bind" suc
 - backend: \[\_bind, compute, backend-services, backend]
 - ... and so on.
 
-changed flags shall be detected after comparing previous settings in cache with current settings.
+changed flags shall be detected after comparing previous settings in cache with current settings in template file.
 
 no circular dependencies assumed in template file.
 

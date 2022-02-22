@@ -58,6 +58,10 @@ def flag(key, value=None, sep='-'):
     return s if value is None else f"{s}={value}"
 
 
+def flagGroup(el, *keys):
+    return ( flag(k, v) for x in keys for k,v in el.get(x, {}).items() )
+
+
 clearopt = {'BuildWorkerPool', 'MaxInstances', 'MinInstances', 'VpcConnector'}
 
 def flagOption(conf, cache):
@@ -66,10 +70,6 @@ def flagOption(conf, cache):
         yield flag(f"Clear{x}")
     for x in conf.get('Flag', []):
         yield flag(x)
-
-
-def flagValue(el, *key):
-    return ( flag(k, v) for x in key for k,v in el.get(x, {}).items() )
 
 
 def bqflagValue(conf, cache, create):
@@ -108,7 +108,7 @@ def tagValue(conf, cache, create):
 
 def _gcloud(conf, mode, tmpname=None, opts=(), **kwds):
     args = conf['Type'] + [mode, tmpname or conf['ID']]
-    args += flagValue(conf, 'Parent')
+    args += flagGroup(conf, 'Parent')
     args += ['--quiet', '--format=yaml']
     args += ( x for xs in opts for x in xs )
     return call('gcloud', *args, **kwds)
@@ -124,13 +124,13 @@ def _bq(conf, mode, opts=(), **kwds):
 
 
 def _deleteBind(conf, *args):
-    ctype, conf0 = conf['Type'], dict(Parent=conf['Parent'].copy())
-    conf0['Type'], tags = ctype[1:-1], conf.get('Tag', {})
+    tags, ctype, parent = conf['Tag'], conf['Type'], conf['Parent'].copy()
     idx = { k for k,v in tags.items() if type(v) is list }
-    conf0['Parent'].update( (k, tags[k]) for k in set(tags) - idx )
-    keys, name = list(idx), conf0['Parent'].pop('ID')
+    parent.update( (k, tags[k]) for k in set(tags) - idx )
+    keys, name = list(idx), parent.pop('ID')
+    conf = dict(Type=ctype[1:-1], Parent=parent)
     for xs in product(*map(tags.get, keys)):
-        _gcloud(conf0, 'remove-' + ctype[-1], name, [map(flag, keys, xs)])
+        _gcloud(conf, 'remove-' + ctype[-1], name, [map(flag, keys, xs)])
 
 
 def deleteResource(conf, cache_path=None):
@@ -142,7 +142,7 @@ def deleteResource(conf, cache_path=None):
 
 def _updateGcloud(conf, cache, create, kwds):
     fix, name = fixmode.get(conf['Type'][0]), create and conf.get('Name')
-    opts = [flagValue(conf, 'Create', 'Update'), flagOption(conf, cache),
+    opts = [flagGroup(conf, 'Create', 'Update'), flagOption(conf, cache),
       tagValue(conf, cache, create and not fix)]
     out = _gcloud(conf, fix or create or 'update', name, opts, **kwds)
     updateRole(conf, cache)
@@ -150,26 +150,24 @@ def _updateGcloud(conf, cache, create, kwds):
 
 
 def aslist(el, keys):
-    for x in map(el.get, keys):
-        if x is not None:
-            yield x if type(x) is list else [x]
+    for k in el and keys:
+        x = el[k]
+        yield x if type(x) is list else [x]
 
 
 def _updateBind(conf, cache, create, kwds):
-    ctype, conf0 = conf['Type'], dict(Parent=conf['Parent'].copy())
-    conf0['Type'], name = ctype[1:-1], conf0['Parent'].pop('ID')
-    src = conf.get('Tag', {}), cache.get('Tag', {})
-    idx = { k for x in src for k,v in x.items() if type(v) is list }
-    keys = list(idx)
-    vals, oldvals = ( set(product(*aslist(x, keys))) for x in src )
-    oldvals.discard(())
-    conf0['Parent'].update( kv for kv in src[1].items() if kv[0] not in idx )
-    for xs in oldvals - vals:
-        _gcloud(conf0, 'remove-' + ctype[-1], name, [map(flag, keys, xs)])
-    opt = list(flagValue(conf, 'Create', 'Update'))
-    mode = ('add-' if create else 'update-') + ctype[-1]
-    conf0['Parent'].update( kv for kv in src[0].items() if kv[0] not in idx )
-    for xs in vals - oldvals:
+    src = conf['Tag'], cache.get('Tag', {})
+    keys, ctype, parent = list(src[0]), conf['Type'], conf['Parent'].copy()
+    conf0, name = dict(Type=ctype[1:-1], Parent=parent), parent.pop('ID')
+    vals, oldvals = ( set(product(*aslist(x, keys))) - {()} for x in src )
+    mode, same = 'remove-' + ctype[-1], vals & oldvals
+    for xs in oldvals - same:
+        _gcloud(conf0, mode, name, [map(flag, keys, xs)])
+    mode, opt = 'add-' + ctype[-1], list(flagGroup(conf, 'Update'))
+    for xs in vals - same:
+        _gcloud(conf0, mode, name, [opt, map(flag, keys, xs)], **kwds)
+    mode = 'update-' + ctype[-1]
+    for xs in same if conf.get('Update') != cache.get('Update') else []:
         _gcloud(conf0, mode, name, [opt, map(flag, keys, xs)], **kwds)
     return dict(id=conf['ID'])
 

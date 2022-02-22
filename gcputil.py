@@ -38,21 +38,6 @@ def listBucket(parents):
         yield f"gs://gcf-sources-{pid[p]}-{region}"
 
 
-def updateRole(conf, cache):
-    roles, oldroles = ( set(x.get('Role', [])) for x in (conf, cache) )
-    if roles == oldroles:
-        return
-    s = conf['ID']
-    args = ['remove-iam-policy-binding', s.split('@', 1)[1].split('.', 1)[0],
-      '--member=serviceAccount:' + s, '--quiet']
-    for x in oldroles - roles:
-        call('gcloud', 'projects', *(args + ['--role=' + x]))
-    args[0] = 'add-iam-policy-binding'
-    for x in roles - oldroles:
-        call('gcloud', 'projects', *(args + ['--role=' + x]))
-    return True
-
-
 def flag(key, value=None, sep='-'):
     s = '-' + ''.join( sep + x.lower() if x.isupper() else x for x in key )
     return s if value is None else f"{s}={value}"
@@ -145,7 +130,6 @@ def _updateGcloud(conf, cache, create, kwds):
     opts = [flagGroup(conf, 'Create', 'Update'), flagOption(conf, cache),
       tagValue(conf, cache, create and not fix)]
     out = _gcloud(conf, fix or create or 'update', name, opts, **kwds)
-    updateRole(conf, cache)
     return yaml.safe_load(out or _gcloud(conf, 'describe'))
 
 
@@ -209,17 +193,16 @@ def readCache(path):
 def updateCache(path, conf, hold):
     cache, out = readCache(path) if os.path.isfile(path) else ({}, None)
     diff = [ x != y for x,y in zip(cache.get('$hash', '??'), conf['$hash']) ]
-    if any(diff):
-        if cache and diff[0]:
-            hold['$bye'].append(cache)
-            idx = [ x['Type'] + [x['ID']] for x in (conf, cache) ]
-            cache = {'ID': conf['ID'] + '-0'} if idx[0] == idx[1] else {}
-        out = updateResource(conf, cache)
-        hold[conf['Type'][0]].append(out.get('id') or out['name'])
-    elif not updateRole(conf, cache):
+    if not any(diff):
         print('  ---- not changed ----')
         conf['ID'] = cache['ID']
         return out
+    if cache and diff[0]:
+        hold['$bye'].append(cache)
+        idx = [ x['Type'] + [x['ID']] for x in (conf, cache) ]
+        cache = {'ID': conf['ID'] + '-0'} if idx[0] == idx[1] else {}
+    out = updateResource(conf, cache)
+    hold[conf['Type'][0]].append(out.get('id') or out['name'])
     write(yaml.dump(dict(Input=conf, Output=out)), path)
     return out
 

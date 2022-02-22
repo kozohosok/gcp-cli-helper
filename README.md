@@ -28,7 +28,7 @@ no circular dependencies assumed in template file.
 
 **parameters:**
 - binfmt: path for Google Cloud SDK
-- cache_dir: directory for cache status (command settings and result) of resources
+- cache_dir: directory for cache status (command settings and result) of resources to be created
 
 **methods:**
 - `make(template_path)` -- create/update resources and remove storage bucket related to gcf (if any)

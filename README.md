@@ -34,7 +34,7 @@ changed flags shall be detected after comparing previous settings in cache with 
 - Defaults: map of default settings for all resources
 - Alias: additional map of default settings for specific resources
 - Resources: resource settings
-  - Type: type-list of resource
+  - Type: type-list of resource (\_bind type to add/remove bindings such as roles)
   - ID: id of resource
   - Name: optional name to specify resource prior to id creation
   - Alias: optional list of alias-map keys for additional default settings
@@ -43,8 +43,7 @@ changed flags shall be detected after comparing previous settings in cache with 
   - Update: optional map of settings (change triggers update)
   - Flag: optional list of flags (change triggers update)
   - Tag: optional map of key-value labels, env-vars (change triggers update)
-  - Role: role-list of service-account resource
-- \_sub_: to replace "{key}" with value of other resources or parameters
+- \_sub_: to replace "{key}" with value of parameters or other resources
 - \_zip_: to make zip archive from source directory and send to gcs
 - \_yml_: to make yaml file from source value specified in template
 

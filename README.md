@@ -39,7 +39,7 @@ no circular dependencies assumed in template file.
 - Defaults: map of default settings for all resources
 - Alias: additional map of default settings for specific resources
 - Resources: resource settings
-  - Type: type-list of resource ("\_bind" type to add/remove bindings such as roles)
+  - Type: type-list of resource to create/update ("\_bind" type to add/remove bindings)
   - ID: id of resource
   - Name: optional name to specify resource prior to id creation
   - Alias: optional list of alias-map keys for additional default settings

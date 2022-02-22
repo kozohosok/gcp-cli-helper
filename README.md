@@ -17,7 +17,10 @@ update or replace resources according to the flags to be changed:
 - update to change flag values which could be specified with create/update commands
 - replace to change flag values which could be specified with create command only
 
-add, update or remove bindings (such as roles) with special type "\_bind"
+add, update or remove bindings to resources specifying special type "\_bind" such as:
+- iam-roles: \[\_bind, projects, iam-policy-binding]
+- backend: \[\_bind, compute, backend-services, backend]
+and so on.
 
 changed flags shall be detected after comparing previous settings in cache with current settings.
 

@@ -136,10 +136,10 @@ def aslist(el, keys):
 
 
 def _updateBind(conf, cache, create, kwds):
-    args, src = prepareUnbind(conf), (conf['Tag'], cache.get('Tag', {}))
+    src = conf['Tag'], cache.get('Tag', {})
     keys, opt = list(src[0]), list(flagGroup(conf, 'Update'))
     vals, oldvals = ( set(product(*aslist(x, keys))) - {()} for x in src )
-    same = vals & oldvals
+    args, same = prepareUnbind(conf), vals & oldvals
     for xs in oldvals - same:
         _gcloud(*args, opts=[map(flag, keys, xs)])
     args[1] = 'add-' + args[1].split('-', 1)[1]

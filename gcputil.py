@@ -239,16 +239,16 @@ def mtime(path):
 def _zip(srcdst, files):
     src, dst = srcdst
     srcfiles, gsfile = list(iglob(src + '/*')), dst.startswith('gs://')
-    zip = src + '.zip' if gsfile else dst
-    files.add(zip)
-    if os.path.isfile(zip) and max(map(mtime, srcfiles)) < mtime(zip):
+    arch = src + '.zip' if gsfile else dst
+    files.add(arch)
+    if os.path.isfile(arch) and max(map(mtime, srcfiles)) < mtime(arch):
         return dst
     n = len(src) + 1
-    with zf.ZipFile(zip, 'w', zf.ZIP_DEFLATED) as z:
+    with zf.ZipFile(arch, 'w', zf.ZIP_DEFLATED) as z:
         for path in srcfiles:
             z.write(path, path[n:])
     if gsfile:
-        call('gsutil', 'cp', zip, dst)
+        call('gsutil', 'cp', arch, dst)
     return dst
 
 

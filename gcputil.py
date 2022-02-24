@@ -114,7 +114,7 @@ def prepareUnbind(conf):
     return [dict(Type=ctype[1:-1], Parent=parent), mode, parent.pop('ID')]
 
 
-def _deleteBind(conf, *args):
+def _deleteBind(conf, mode):
     tags, args = conf['Tag'], prepareUnbind(conf)
     idx = { k for k,v in tags.items() if type(v) is list }
     keys, opt = list(idx), [ flag(k, tags[k]) for k in set(tags) - idx ]

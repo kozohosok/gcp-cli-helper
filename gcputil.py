@@ -58,8 +58,8 @@ def flagOption(conf, cache):
 
 
 def bqflagValue(conf, cache, create):
-    key = ['Create', 'Update'] if create else ['Update']
-    for k,v in ( kv for x in key for kv in conf.get(x, {}).items() ):
+    keys = ['Create', 'Update'] if create else ['Update']
+    for k,v in ( kv for x in keys for kv in conf.get(x, {}).items() ):
         yield '--' + flag(k, v, '_')[2:]
     tags, oldtags = conf.get('Tag', {}), cache.get('Tag', {})
     labels, oldlabels = tags.get('Labels', {}), oldtags.get('Labels', {})
@@ -108,14 +108,18 @@ def _bq(conf, mode, opts=(), **kwds):
     return call('bq', *args, **kwds)
 
 
+def prepareUnbind(conf):
+    ctype, parent = conf['Type'], conf['Parent'].copy()
+    mode = 'remove-' + ctype[-1]
+    return [dict(Type=ctype[1:-1], Parent=parent), mode, parent.pop('ID')]
+
+
 def _deleteBind(conf, *args):
-    tags, ctype, parent = conf['Tag'], conf['Type'], conf['Parent'].copy()
+    tags, args = conf['Tag'], prepareUnbind(conf)
     idx = { k for k,v in tags.items() if type(v) is list }
-    parent.update( (k, tags[k]) for k in set(tags) - idx )
-    keys, name = list(idx), parent.pop('ID')
-    conf = dict(Type=ctype[1:-1], Parent=parent)
+    keys, opt = list(idx), [ flag(k, tags[k]) for k in set(tags) - idx ]
     for xs in product(*map(tags.get, keys)):
-        _gcloud(conf, 'remove-' + ctype[-1], name, [map(flag, keys, xs)])
+        _gcloud(*args, opts=[opt, map(flag, keys, xs)])
 
 
 def deleteResource(conf, cache_path=None):
@@ -125,6 +129,30 @@ def deleteResource(conf, cache_path=None):
         os.remove(cache_path)
 
 
+def aslist(el, keys):
+    for k in el and keys:
+        x = el[k]
+        yield x if type(x) is list else [x]
+
+
+def _updateBind(conf, cache, create, kwds):
+    args, src = prepareUnbind(conf), (conf['Tag'], cache.get('Tag', {}))
+    keys, opt = list(src[0]), list(flagGroup(conf, 'Update'))
+    vals, oldvals = ( set(product(*aslist(x, keys))) - {()} for x in src )
+    same = vals & oldvals
+    for xs in oldvals - same:
+        _gcloud(*args, opts=[map(flag, keys, xs)])
+    args[1] = 'add-' + args[1].split('-', 1)[1]
+    for xs in vals - same:
+        _gcloud(*args, opts=[opt, map(flag, keys, xs)], **kwds)
+    args[1] = 'update-' + args[1][4:]
+    for xs in [] if conf.get('Update') == cache.get('Update') else same:
+        _gcloud(*args, opts=[opt, map(flag, keys, xs)], **kwds)
+    return dict(id=conf['ID'])
+
+
+fixmode = dict(functions='deploy')
+
 def _updateGcloud(conf, cache, create, kwds):
     fix, name = fixmode.get(conf['Type'][0]), create and conf.get('Name')
     opts = [flagGroup(conf, 'Create', 'Update'), flagOption(conf, cache),
@@ -133,35 +161,10 @@ def _updateGcloud(conf, cache, create, kwds):
     return yaml.safe_load(out or _gcloud(conf, 'describe'))
 
 
-def aslist(el, keys):
-    for k in el and keys:
-        x = el[k]
-        yield x if type(x) is list else [x]
-
-
-def _updateBind(conf, cache, create, kwds):
-    src = conf['Tag'], cache.get('Tag', {})
-    keys, ctype, parent = list(src[0]), conf['Type'], conf['Parent'].copy()
-    conf0, name = dict(Type=ctype[1:-1], Parent=parent), parent.pop('ID')
-    vals, oldvals = ( set(product(*aslist(x, keys))) - {()} for x in src )
-    mode, same = 'remove-' + ctype[-1], vals & oldvals
-    for xs in oldvals - same:
-        _gcloud(conf0, mode, name, [map(flag, keys, xs)])
-    mode, opt = 'add-' + ctype[-1], list(flagGroup(conf, 'Update'))
-    for xs in vals - same:
-        _gcloud(conf0, mode, name, [opt, map(flag, keys, xs)], **kwds)
-    mode = 'update-' + ctype[-1]
-    for xs in same if conf.get('Update') != cache.get('Update') else []:
-        _gcloud(conf0, mode, name, [opt, map(flag, keys, xs)], **kwds)
-    return dict(id=conf['ID'])
-
-
 def _updateBq(conf, cache, create, kwds):
     _bq(conf, create or 'update', [bqflagValue(conf, cache, create)], **kwds)
     return json.loads(_bq(conf, 'show'))
 
-
-fixmode = dict(functions='deploy')
 
 def updateResource(conf, cache):
     if cache:
@@ -208,6 +211,7 @@ def updateCache(path, conf, hold):
 
 
 def clean(used, hold):
+    print('_' * 79 + '\n')
     for conf in hold['$bye'][::-1]:
         deleteResource(conf)
     for name in set(map(os.path.basename, iglob(cache_dir + '*'))) - used:

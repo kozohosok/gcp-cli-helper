@@ -49,7 +49,7 @@ no circular dependencies assumed in template file.
   - Create: optional map of settings (change triggers replace)
   - Update: optional map of settings (change triggers update)
   - Flag: optional list of flags (change triggers update)
-  - Tag: optional map of key-value labels, env-vars (change triggers update)
+  - Tag: optional map of key-value labels, env-vars, roles (change triggers update)
 - \_sub_: to replace "{key}" with value of parameters or other resources
 - \_zip_: to make zip archive from source directory and send to gcs
 - \_yml_: to make yaml file from source value specified in template

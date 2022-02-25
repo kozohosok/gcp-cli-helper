@@ -116,8 +116,8 @@ def prepareUnbind(conf):
 
 def _deleteBind(conf, mode):
     tags, args = conf['Tag'], prepareUnbind(conf)
-    idx = { k for k,v in tags.items() if type(v) is list }
-    keys, opt = list(idx), [ flag(k, tags[k]) for k in set(tags) - idx ]
+    keys = [ k for k,v in tags.items() if type(v) is list ]
+    opt = { flag(k, tags[k]) for k in set(tags) - set(keys) }
     for xs in product(*map(tags.get, keys)):
         _gcloud(*args, opts=[opt, map(flag, keys, xs)])
 
@@ -137,7 +137,7 @@ def aslist(el, keys):
 
 def _updateBind(conf, cache, create, kwds):
     src = conf['Tag'], cache.get('Tag', {})
-    keys, opt = list(src[0]), list(flagGroup(conf, 'Update'))
+    keys, opt = list(src[0]), set(flagGroup(conf, 'Update'))
     vals, oldvals = ( set(product(*aslist(x, keys))) - {()} for x in src )
     args, same = prepareUnbind(conf), vals & oldvals
     for xs in oldvals - same:
